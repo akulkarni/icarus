@@ -78,7 +78,7 @@ class IcarusSystem:
         logger.info(f"  - MarketDataAgent created for symbols: {symbols}")
 
         # 2. Strategy Agents
-        strategies = []
+        strategy_names = []  # Collect strategy names
 
         # Momentum Strategy
         if config['strategies']['momentum']['enabled']:
@@ -90,7 +90,7 @@ class IcarusSystem:
                 warmup_period=config['strategies']['momentum']['warmup_period']
             )
             self.agents.append(momentum_strategy)
-            strategies.append(momentum_strategy)
+            strategy_names.append('momentum')  # Add name to list
             logger.info("  - MomentumStrategy created")
 
         # MACD Strategy
@@ -104,7 +104,7 @@ class IcarusSystem:
                 warmup_period=config['strategies']['macd']['warmup_period']
             )
             self.agents.append(macd_strategy)
-            strategies.append(macd_strategy)
+            strategy_names.append('macd')  # Add name to list
             logger.info("  - MACDStrategy created")
 
         # 3. Execution Agent
@@ -120,7 +120,7 @@ class IcarusSystem:
         # 4. Meta-Strategy Agent
         meta_strategy_agent = MetaStrategyAgent(
             self.event_bus,
-            strategies=strategies,
+            strategies=strategy_names,  # Pass string list, not agent objects
             evaluation_interval_hours=config['meta_strategy']['evaluation_interval_hours']
         )
         self.agents.append(meta_strategy_agent)
