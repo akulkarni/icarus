@@ -6,6 +6,7 @@ Manages positions and persists to database.
 """
 import asyncio
 import logging
+import os
 from decimal import Decimal
 from datetime import datetime
 from typing import Dict
@@ -33,15 +34,36 @@ class TradeExecutionAgent(BaseAgent):
         super().__init__("execution", event_bus)
         self.initial_capital = initial_capital
         self.config = config or {}
+
+        # Position sizing configuration
         self.position_size_pct = Decimal(str(
             self.config.get('trading', {}).get('position_size_pct', 20)
         )) / Decimal('100')  # Convert 20 -> 0.2
         self.position_exit_pct = Decimal(str(
             self.config.get('trading', {}).get('position_exit_pct', 50)
         )) / Decimal('100')  # Convert 50 -> 0.5
+
+        # Portfolio tracking
         self.strategy_portfolios: Dict[str, dict] = {}  # strategy_name -> {cash, positions}
         self.current_allocations: Dict[str, float] = {}  # strategy_name -> allocation_pct
         self.current_prices: Dict[str, Decimal] = {}  # symbol -> last price
+
+        # Trading mode configuration
+        self.trade_mode = self.config.get('trading', {}).get('mode', 'paper')
+
+        # Safety check for live trading
+        if self.trade_mode == 'live':
+            if os.getenv('ALLOW_LIVE_TRADING') != 'true':
+                raise RuntimeError(
+                    "Live trading mode requires ALLOW_LIVE_TRADING=true "
+                    "environment variable. This is a safety check to prevent "
+                    "accidental real trading."
+                )
+            logger.warning("=" * 80)
+            logger.warning("LIVE TRADING MODE ENABLED - REAL MONEY AT RISK")
+            logger.warning("=" * 80)
+        else:
+            logger.info("Paper trading mode enabled (simulated trades)")
 
     async def start(self):
         """Start execution agent"""
