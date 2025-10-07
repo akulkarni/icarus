@@ -41,10 +41,11 @@ class IcarusSystem:
         logger.info("ICARUS TRADING SYSTEM - INITIALIZING")
         logger.info("=" * 80)
 
-        # Load configuration
-        logger.info("Loading configuration...")
-        self.config = load_config()
-        logger.info("Configuration loaded")
+        # Load configuration (if not already loaded)
+        if self.config is None:
+            logger.info("Loading configuration...")
+            self.config = load_config()
+            logger.info("Configuration loaded")
 
         # Initialize database
         logger.info("Initializing database connection...")
@@ -206,14 +207,15 @@ class IcarusSystem:
 
 async def main():
     """Main entry point"""
-    # Basic logging setup (will be enhanced by logging_setup.py later)
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)8s] %(name)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    # Load configuration first
+    from src.core.config import load_config
+    from src.core.logging_setup import setup_logging
+
+    config = load_config()
+    setup_logging(config)
 
     system = IcarusSystem()
+    system.config = config  # Pass config loaded in main()
 
     # Setup signal handlers
     def signal_handler(signum, frame):
