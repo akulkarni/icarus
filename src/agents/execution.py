@@ -327,7 +327,7 @@ class TradeExecutionAgent(BaseAgent):
 
     async def _calculate_and_persist_performance(self, strategy_name: str):
         """Calculate performance metrics for a strategy"""
-        db = get_db_manager()
+        db = get_db_manager_sync()
         conn = await db.get_connection()
 
         try:

@@ -14,11 +14,12 @@ from src.models.events import TradingSignalEvent
 class MomentumStrategy(StrategyAgent):
     """Moving average crossover strategy"""
 
-    def __init__(self, event_bus, symbol: str = 'BTCUSDT'):
+    def __init__(self, event_bus, symbol: str = 'BTCUSDT',
+                 ma_short: int = 20, ma_long: int = 50, warmup_period: int = 50):
         params = {
-            'ma_short': 20,
-            'ma_long': 50,
-            'warmup_period': 50,
+            'ma_short': ma_short,      # Use parameter instead of hardcoded 20
+            'ma_long': ma_long,        # Use parameter instead of hardcoded 50
+            'warmup_period': warmup_period,  # Use parameter instead of hardcoded 50
             'max_history': 200
         }
         super().__init__('momentum', event_bus, symbol, params)
