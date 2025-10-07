@@ -10,7 +10,7 @@ from decimal import Decimal
 from binance import AsyncClient, BinanceSocketManager
 from src.agents.base import BaseAgent
 from src.models.events import MarketTickEvent
-from src.core.database import get_db_manager
+from src.core.database import get_db_manager_sync
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class MarketDataAgent(BaseAgent):
 
     async def _persist_tick(self, event: MarketTickEvent):
         """Save tick to database"""
-        db = get_db_manager()
+        db = get_db_manager_sync()
 
         try:
             conn = await db.get_connection()

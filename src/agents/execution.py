@@ -17,7 +17,7 @@ from src.models.events import (
     MarketTickEvent
 )
 from src.models.trading import Position, Trade
-from src.core.database import get_db_manager
+from src.core.database import get_db_manager_sync
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ class TradeExecutionAgent(BaseAgent):
 
     async def _persist_trade(self, trade: Trade):
         """Save trade to database"""
-        db = get_db_manager()
+        db = get_db_manager_sync()
 
         try:
             conn = await db.get_connection()
