@@ -16,7 +16,7 @@ from src.models.events import (
     EmergencyHaltEvent,
     MarketTickEvent
 )
-from src.core.database import get_db_manager
+from src.core.database import get_db_manager_sync
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +201,7 @@ class RiskMonitorAgent(BaseAgent):
 
     async def _check_exposure(self):
         """Check if total exposure exceeds limit"""
-        db = get_db_manager()
+        db = get_db_manager_sync()
         conn = await db.get_connection()
 
         try:
@@ -346,7 +346,7 @@ class RiskMonitorAgent(BaseAgent):
 
     async def _check_strategy_drawdowns(self):
         """Check per-strategy drawdown limits"""
-        db = get_db_manager()
+        db = get_db_manager_sync()
         conn = await db.get_connection()
 
         try:
@@ -397,7 +397,7 @@ class RiskMonitorAgent(BaseAgent):
         Returns:
             Current portfolio value or None if unavailable
         """
-        db = get_db_manager()
+        db = get_db_manager_sync()
         conn = await db.get_connection()
 
         try:
