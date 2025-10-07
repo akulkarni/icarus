@@ -141,11 +141,8 @@ class IcarusSystem:
         risk_config = config['risk']
         risk_monitor_agent = RiskMonitorAgent(
             self.event_bus,
-            initial_capital=initial_capital,
-            max_position_size_pct=risk_config['max_position_size_pct'],
-            max_daily_loss_pct=risk_config['max_daily_loss_pct'],
-            max_exposure_pct=risk_config['max_exposure_pct'],
-            max_strategy_drawdown_pct=risk_config['max_strategy_drawdown_pct']
+            config=risk_config,  # Pass entire config dict
+            initial_portfolio_value=initial_capital  # Use correct parameter name
         )
         self.agents.append(risk_monitor_agent)
         logger.info("  - RiskMonitorAgent created")
