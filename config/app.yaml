@@ -1,0 +1,60 @@
+# Icarus Trading System Configuration
+
+# Database Configuration
+database:
+  host: ${TIGER_HOST}
+  port: ${TIGER_PORT:5432}
+  database: ${TIGER_DATABASE:tsdb}
+  user: ${TIGER_USER:tsdbadmin}
+  password: ${TIGER_PASSWORD}
+  pool_min_size: 5
+  pool_max_size: 20
+  timeout: 30
+
+# Tiger Cloud Configuration
+tiger:
+  service_id: ${TIGER_SERVICE_ID}
+  max_concurrent_forks: 10
+
+# Trading Configuration
+trading:
+  mode: paper  # paper or live
+  initial_capital: 10000
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+
+# Risk Configuration
+risk:
+  max_position_size_pct: 20  # % of allocated capital
+  max_daily_loss_pct: 5      # % of total portfolio
+  max_exposure_pct: 80       # % of portfolio
+  max_strategy_drawdown_pct: 10
+
+# Strategy Configuration
+strategies:
+  momentum:
+    enabled: true
+    symbol: BTCUSDT
+    ma_short: 20
+    ma_long: 50
+    warmup_period: 50
+
+  macd:
+    enabled: true
+    symbol: BTCUSDT
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+    warmup_period: 50
+
+# Meta-Strategy Configuration
+meta_strategy:
+  evaluation_interval_hours: 6
+  initial_allocation: equal  # equal or custom
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: json
+  file: logs/icarus.log
