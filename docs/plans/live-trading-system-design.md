@@ -20,6 +20,7 @@
 9. [MVP Scope & Development Phases](#mvp-scope--development-phases)
 10. [Database Schema Design](#database-schema-design)
 11. [System Configuration & Operations](#system-configuration--operations)
+12. [Risk Management & Trading Parameters](#risk-management--trading-parameters)
 
 ---
 
@@ -31,7 +32,13 @@ A live cryptocurrency trading system that serves as a compelling showcase for Ti
 
 The key differentiator is the intelligent use of database forks throughout the development and operational lifecycle. Rather than treating forks as an occasional feature, they become central to how strategies are developed, tested, validated, and deployed. A meta-strategy component dynamically selects which strategies to activate based on a combination of recent backtest performance, market regime detection, and other signals.
 
-The system prioritizes getting to an MVP quickly - a working end-to-end demonstration that shows real trading decisions being made with forked databases playing a visible role. Risk management will be minimal initially to focus on the showcase aspects. The primary interface will be a web dashboard that visualizes not just trading activity and P&L, but also the fork lifecycle and how forks enable rapid iteration.
+The system prioritizes getting to an MVP quickly - a working end-to-end demonstration that shows real trading decisions being made with forked databases playing a visible role. Initial paper trading capital is set at $10,000 with clear risk limits enforced from day 1. The primary interface will be a web dashboard that visualizes not just trading activity and P&L, but also the fork lifecycle and how forks enable rapid iteration.
+
+**Initial Trading Parameters**:
+- Trading pairs: BTC/USDT and ETH/USDT
+- Paper trading capital: $10,000
+- Market data source: Binance public API (no authentication required)
+- Order execution: Paper trading simulation with instant fills at market price
 
 ---
 
@@ -57,7 +64,7 @@ Receives trade signals from active strategies and autonomously manages order lif
 Proactively creates, monitors, and cleans up database forks. Responds to requests from other agents (strategies wanting to backtest, meta-strategy running evaluations) and autonomously manages fork lifecycle and resource usage.
 
 #### 6. Risk Monitor Agent
-Observes all trading activity and can autonomously intervene (halt trading, reduce positions) if basic thresholds are breached, even in the minimal MVP version.
+Observes all trading activity and can autonomously intervene (halt trading, reduce positions) when risk thresholds are breached. Enforces strict limits from Phase 1 MVP to ensure safe operation.
 
 #### 7. PR Agent
 Monitors system activity across all agents, identifying "interesting developments" worth highlighting: exceptional strategy performance, successful fork-based optimizations, regime changes detected by meta-strategy, near-misses caught by risk monitoring, etc. Logs these narratives in a human-readable format (markdown file or structured log) that can be used for demos, blog posts, or documentation.
@@ -84,7 +91,12 @@ The main production database maintains the current state:
 Forks become the primary mechanism for safe experimentation and validation:
 
 #### Pattern 1 - Strategy Validation
-When a Strategy Agent wants to validate its logic before requesting capital, it asks Fork Manager Agent to create a fork. The strategy runs a backtest on recent data in the fork, generates performance metrics, and reports results to Meta-Strategy Agent. Fork is destroyed after validation.
+Strategy Agents request forks for validation backtests on a hybrid schedule:
+- **Fixed schedule**: Every 6 hours for routine validation
+- **Event-triggered**: On market regime changes or when strategy performance drops below -5%
+- **On-demand**: When Meta-Strategy Agent requests validation before reallocation decisions
+
+The strategy runs a backtest on recent data in the fork, generates performance metrics, and reports results to Meta-Strategy Agent. Fork is destroyed after validation.
 
 #### Pattern 2 - Parameter Optimization
 Strategy Agents periodically request forks to test parameter variations (different MA periods, threshold values). Multiple parameter sets are tested in parallel across multiple forks. Best-performing parameters are adopted by the live strategy.
@@ -101,7 +113,9 @@ When Risk Monitor Agent detects anomalies or PR Agent identifies interesting eve
 
 ### How the Meta-Strategy Agent Decides
 
-The Meta-Strategy Agent operates on a periodic cycle (e.g., every hour or every 6 hours) and uses multiple inputs to make capital allocation decisions:
+The Meta-Strategy Agent operates on a periodic cycle (every 6 hours) and uses multiple inputs to make capital allocation decisions.
+
+**Initial Allocation Strategy**: When the system starts with no historical performance data, Meta-Strategy allocates capital equally across all available strategies. After the first validation cycle completes (1-2 hours), it switches to performance-based allocation using the inputs below:
 
 #### Input 1 - Recent Backtest Performance
 Requests forks covering the last 7, 30, and 90 days. Each Strategy Agent runs backtests on these forks in parallel. Meta-strategy receives performance metrics (ROI, Sharpe ratio, max drawdown, win rate) and weighs recent performance more heavily than older data.
@@ -157,18 +171,22 @@ Dedicated section displaying interesting developments logged by the PR Agent - f
 ### Backend Technologies
 
 #### Agent Framework
-Python-based with an async/await model using `asyncio` for concurrent agent operations. Each agent runs as an async task that can independently make decisions and communicate. Message passing between agents via an in-memory event bus or lightweight message queue (Redis Pub/Sub or simple Python queues for MVP).
+Python-based with an async/await model using `asyncio` for concurrent agent operations. Each agent runs as an async task that can independently make decisions and communicate. Message passing between agents via Python's `asyncio.Queue` for MVP (no external dependencies). Can be upgraded to Redis Pub/Sub in later phases if needed for scalability.
 
 #### Database Layer
 - TimescaleDB (Tiger Cloud) as primary data store
 - `psycopg2` or `asyncpg` for PostgreSQL connections
 - Tiger Cloud CLI/API for fork management operations
-- Connection pooling to handle multiple agents querying simultaneously
+- Connection pool size: `(num_agents * 2) + 5` for main database
+- Each agent maintains its own connection when querying forks
+- Requires Tiger Cloud credentials with fork creation/deletion permissions
 
 #### Market Data & Trading
 - `python-binance` or `ccxt` library for Binance API integration
+- **Phase 1**: Use Binance public endpoints (no API keys required) for market data streaming
+- **Phase 3**: Binance API keys required for real trading mode
 - WebSocket connections for real-time price streams
-- REST API calls for order execution and account management
+- REST API calls for order execution (simulated in paper mode, real in Phase 3)
 
 #### Data Processing
 `pandas` and `numpy` for time-series analysis, technical indicators, and backtest calculations (reusing existing backtest code).
@@ -237,7 +255,7 @@ Fork Manager's logs and metrics become compelling demo material: "System created
 Agents operate independently but coordinate through an event-driven messaging system:
 
 #### Event Bus
-Central message broker (implemented with Python's `asyncio.Queue` or Redis Pub/Sub for MVP) where agents publish events and subscribe to topics of interest.
+Central message broker implemented with Python's `asyncio.Queue` where agents publish events and subscribe to topics of interest. No external dependencies required for MVP.
 
 #### Event Types
 - **Market events**: Price updates, volume spikes, volatility changes (from Market Data Agent)
@@ -283,15 +301,16 @@ No single "orchestrator" - the system emerges from agent interactions. Meta-Stra
 **Goal**: Get a working end-to-end system demonstrating the core concept with fork integration.
 
 **Includes**:
-- Market Data Agent streaming live Binance price data into TimescaleDB
+- Market Data Agent streaming live Binance price data into TimescaleDB (public API, no auth required)
 - 2 Strategy Agents (momentum, MACD) running in paper trading mode - reuse existing backtest code
-- Simple Meta-Strategy Agent with basic allocation logic (performance-based from recent data)
-- Trade Execution Agent in paper trading mode only (simulated orders)
+- Simple Meta-Strategy Agent with equal weighting initially, switching to performance-based after first validation cycle
+- Trade Execution Agent in paper trading mode with instant fills at market price
 - Fork Manager Agent capable of creating/destroying forks via Tiger Cloud CLI
-- Basic event bus for agent communication (asyncio queues)
-- Minimal Risk Monitor (position size limits only)
+- Basic event bus for agent communication (asyncio queues, no external dependencies)
+- Risk Monitor Agent enforcing Phase 1 risk limits (see Risk Management section)
 - Command-line output showing agent activity and trades (no web UI yet)
 - Database schema with core tables (trades, positions, strategy_performance, agent_events, fork_tracking)
+- Trading BTC/USDT and ETH/USDT with $10,000 paper capital
 
 **Key Showcase Element**: Strategy Agents request forks for validation backtests every hour, Fork Manager creates/destroys forks, results feed Meta-Strategy allocation decisions. All visible in logs.
 
@@ -307,6 +326,7 @@ No single "orchestrator" - the system emerges from agent interactions. Meta-Stra
 - PR Agent identifying and logging interesting developments
 - Add remaining Strategy Agents (1-2 more: Bollinger, mean reversion)
 - Agent status visualization on dashboard
+- Paper trading with basic slippage simulation (0.05-0.1%) for added realism
 
 ### Phase 3: Production Ready + Full Showcase (Day 3)
 
@@ -517,6 +537,72 @@ PR Agent configured to generate more frequent updates highlighting fork usage an
 
 #### Dashboard Highlighting
 Visual emphasis on fork activity panel during demos to draw attention to Tiger Cloud's differentiating feature.
+
+---
+
+---
+
+## Risk Management & Trading Parameters
+
+### Phase 1 Risk Limits (MVP)
+
+The Risk Monitor Agent enforces the following limits from Day 1 to ensure safe paper trading operation:
+
+#### Position Limits
+- **Max position size**: 20% of allocated capital per trade
+- **Max total exposure**: 80% of portfolio (minimum 20% cash reserve)
+- **Max positions per strategy**: 2 simultaneous positions
+
+#### Loss Limits
+- **Max daily loss**: 5% of total portfolio value
+  - Action: Halt all trading for remainder of day
+  - Reset at midnight UTC
+- **Per-strategy drawdown limit**: 10% from peak
+  - Action: Automatically deactivate strategy, set allocation to 0%
+  - Strategy can be reactivated after successful fork-based validation
+
+#### Portfolio Parameters
+- **Initial capital**: $10,000 (paper trading)
+- **Trading pairs**: BTC/USDT, ETH/USDT
+- **Transaction fees**: 0.1% per trade (Binance standard)
+- **Initial allocation**: Equal weighting across active strategies
+  - Example: 2 strategies = 50% each
+  - Switches to performance-based after first validation cycle (1-2 hours)
+
+### Paper Trading Mechanics
+
+#### Order Execution Simulation
+- **Phase 1**: Instant fills at current market price
+  - No slippage modeling for MVP simplicity
+  - Execution price = latest market price from Market Data Agent
+- **Phase 2**: Add basic slippage simulation
+  - 0.05-0.1% slippage on fills
+  - Models realistic execution conditions
+
+#### Capital Allocation
+- Meta-Strategy controls allocation percentages
+- Trade Execution Agent respects current allocations when processing signals
+- Example: Strategy with 30% allocation and $10,000 portfolio = $3,000 buying power
+
+### Prerequisites & Setup Requirements
+
+Before implementation begins, ensure the following are available:
+
+#### Tiger Cloud Access
+- [ ] Tiger Cloud service credentials (host, port, database, username, password)
+- [ ] Fork creation/deletion permissions enabled on service
+- [ ] CLI/API access configured for fork operations
+- [ ] Connection string for main production database
+
+#### Binance API (Phase-Dependent)
+- [ ] **Phase 1-2**: No API keys required (public endpoints only for market data)
+- [ ] **Phase 3**: Binance API key and secret for real trading mode
+- [ ] **Phase 3**: API keys have spot trading permissions enabled
+
+#### Development Environment
+- [ ] Python 3.9+ installed
+- [ ] Required libraries: `asyncio`, `asyncpg`/`psycopg2`, `pandas`, `numpy`, `python-binance`/`ccxt`, `fastapi` (Phase 2+)
+- [ ] Database schema deployed to Tiger Cloud instance
 
 ---
 
