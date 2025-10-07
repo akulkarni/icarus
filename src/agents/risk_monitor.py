@@ -169,8 +169,8 @@ class RiskMonitorAgent(BaseAgent):
         # Check if exceeds limit
         if position_size_pct > self.max_position_size_pct:
             await self.publish(RiskAlertEvent(
+                alert_type='position_size',
                 severity='critical',
-                risk_type='position_size',
                 message=f"Position size {position_size_pct:.2f}% exceeds limit "
                        f"{self.max_position_size_pct}% for {trade.strategy_name}",
                 metadata={
@@ -188,8 +188,8 @@ class RiskMonitorAgent(BaseAgent):
         # Warning threshold
         elif position_size_pct > self.max_position_size_pct * self.warning_threshold:
             await self.publish(RiskAlertEvent(
+                alert_type='position_size',
                 severity='warning',
-                risk_type='position_size',
                 message=f"Position size {position_size_pct:.2f}% approaching limit "
                        f"{self.max_position_size_pct}%",
                 metadata={
@@ -233,8 +233,8 @@ class RiskMonitorAgent(BaseAgent):
             # Check if exceeds limit
             if exposure_pct > self.max_exposure_pct:
                 await self.publish(RiskAlertEvent(
+                    alert_type='exposure',
                     severity='critical',
-                    risk_type='exposure',
                     message=f"Total exposure {exposure_pct:.2f}% exceeds limit "
                            f"{self.max_exposure_pct}%",
                     metadata={
@@ -251,8 +251,8 @@ class RiskMonitorAgent(BaseAgent):
             # Warning threshold
             elif exposure_pct > self.max_exposure_pct * self.warning_threshold:
                 await self.publish(RiskAlertEvent(
+                    alert_type='exposure',
                     severity='warning',
-                    risk_type='exposure',
                     message=f"Exposure {exposure_pct:.2f}% approaching limit "
                            f"{self.max_exposure_pct}%",
                     metadata={'exposure_pct': float(exposure_pct)}
@@ -321,25 +321,21 @@ class RiskMonitorAgent(BaseAgent):
                 await self.publish(EmergencyHaltEvent(
                     reason=f"Daily loss {abs(daily_loss_pct):.2f}% exceeds limit "
                           f"{self.max_daily_loss_pct}%",
-                    severity='critical',
-                    metadata={
-                        'daily_loss_pct': float(daily_loss_pct),
-                        'limit': float(self.max_daily_loss_pct),
-                        'start_value': float(self.daily_start_value),
-                        'current_value': float(current_value)
-                    }
+                    triggered_by='risk_monitor',
+                    affected_strategies=None
                 ))
 
                 logger.critical(
                     f"EMERGENCY HALT: Daily loss {abs(daily_loss_pct):.2f}% "
-                    f"exceeds {self.max_daily_loss_pct}%"
+                    f"exceeds {self.max_daily_loss_pct}% "
+                    f"(start: ${self.daily_start_value}, current: ${current_value})"
                 )
 
         # Warning threshold
         elif daily_loss_pct < -(self.max_daily_loss_pct * self.warning_threshold):
             await self.publish(RiskAlertEvent(
+                alert_type='daily_loss',
                 severity='warning',
-                risk_type='daily_loss',
                 message=f"Daily loss {abs(daily_loss_pct):.2f}% approaching limit "
                        f"{self.max_daily_loss_pct}%",
                 metadata={
@@ -376,8 +372,8 @@ class RiskMonitorAgent(BaseAgent):
                 # Check if drawdown exceeds limit
                 if max_drawdown > float(self.max_strategy_drawdown_pct):
                     await self.publish(RiskAlertEvent(
+                        alert_type='strategy_drawdown',
                         severity='critical',
-                        risk_type='strategy_drawdown',
                         message=f"Strategy {strategy_name} drawdown {max_drawdown:.2f}% "
                                f"exceeds limit {self.max_strategy_drawdown_pct}%",
                         metadata={

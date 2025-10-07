@@ -29,9 +29,16 @@ class TradeExecutionAgent(BaseAgent):
     Paper trading mode: simulates fills instantly at market price.
     """
 
-    def __init__(self, event_bus, initial_capital: Decimal = Decimal('10000')):
+    def __init__(self, event_bus, initial_capital: Decimal = Decimal('10000'), config: dict = None):
         super().__init__("execution", event_bus)
         self.initial_capital = initial_capital
+        self.config = config or {}
+        self.position_size_pct = Decimal(str(
+            self.config.get('trading', {}).get('position_size_pct', 20)
+        )) / Decimal('100')  # Convert 20 -> 0.2
+        self.position_exit_pct = Decimal(str(
+            self.config.get('trading', {}).get('position_exit_pct', 50)
+        )) / Decimal('100')  # Convert 50 -> 0.5
         self.strategy_portfolios: Dict[str, dict] = {}  # strategy_name -> {cash, positions}
         self.current_allocations: Dict[str, float] = {}  # strategy_name -> allocation_pct
         self.current_prices: Dict[str, Decimal] = {}  # symbol -> last price
@@ -49,7 +56,8 @@ class TradeExecutionAgent(BaseAgent):
         await asyncio.gather(
             self._process_signals(signal_queue),
             self._process_allocations(allocation_queue),
-            self._track_prices(market_queue)
+            self._track_prices(market_queue),
+            self._performance_tracking_loop()
         )
 
     async def _process_signals(self, queue):
@@ -95,8 +103,15 @@ class TradeExecutionAgent(BaseAgent):
 
     async def _execute_buy(self, signal: TradingSignalEvent, portfolio: dict):
         """Execute buy order (paper trading)"""
-        # Use 20% of available cash (position sizing)
-        cash_to_use = portfolio['cash'] * Decimal('0.2')
+        # Calculate allocated capital for this strategy
+        allocation_pct = self.current_allocations.get(signal.strategy_name, 0)
+        allocated_capital = self.initial_capital * (Decimal(str(allocation_pct)) / Decimal('100'))
+
+        # Use configured position size % of allocated capital
+        cash_to_use = allocated_capital * self.position_size_pct
+
+        # But don't exceed available cash
+        cash_to_use = min(cash_to_use, portfolio['cash'])
 
         if cash_to_use < Decimal('10'):  # Minimum order size
             self.logger.warning(f"Insufficient cash for {signal.symbol}: ${portfolio['cash']}")
@@ -169,8 +184,8 @@ class TradeExecutionAgent(BaseAgent):
             self.logger.warning(f"No price data for {signal.symbol}")
             return
 
-        # Sell 50% of position
-        quantity = position_quantity * Decimal('0.5')
+        # Sell configurable % of position
+        quantity = position_quantity * self.position_exit_pct
         fee = quantity * price * Decimal('0.001')  # 0.1% fee
 
         # Update portfolio
@@ -274,3 +289,116 @@ class TradeExecutionAgent(BaseAgent):
             'position_value': float(total_position_value),
             'total_value': float(portfolio['cash'] + total_position_value)
         }
+
+    async def _performance_tracking_loop(self):
+        """Calculate and persist strategy performance metrics"""
+        self.logger.info("Performance tracking started (15 minute interval)")
+
+        while True:
+            await asyncio.sleep(900)  # 15 minutes
+
+            for strategy_name in self.strategy_portfolios.keys():
+                try:
+                    await self._calculate_and_persist_performance(strategy_name)
+                except Exception as e:
+                    self.logger.error(f"Error calculating performance for {strategy_name}: {e}")
+
+    async def _calculate_and_persist_performance(self, strategy_name: str):
+        """Calculate performance metrics for a strategy"""
+        db = get_db_manager()
+        conn = await db.get_connection()
+
+        try:
+            # Query trades for last 7 days
+            trades = await conn.fetch("""
+                SELECT side, quantity, price, fee, time
+                FROM trades
+                WHERE strategy_name = $1
+                  AND time >= NOW() - INTERVAL '7 days'
+                ORDER BY time ASC
+            """, strategy_name)
+
+            if not trades:
+                return
+
+            # Calculate metrics
+            total_pnl = Decimal('0')
+            winning_trades = 0
+            losing_trades = 0
+            trade_pnls = []
+
+            # Group into round-trip trades (buy -> sell pairs)
+            # Simple approach: calculate P&L from all sells
+            position_cost = Decimal('0')
+            position_qty = Decimal('0')
+
+            for trade in trades:
+                if trade['side'] == 'buy':
+                    # Add to position
+                    cost = Decimal(str(trade['quantity'])) * Decimal(str(trade['price'])) + Decimal(str(trade['fee']))
+                    position_cost += cost
+                    position_qty += Decimal(str(trade['quantity']))
+                else:  # sell
+                    if position_qty > 0:
+                        # Calculate P&L for this sell
+                        avg_cost = position_cost / position_qty if position_qty > 0 else Decimal('0')
+                        sell_qty = Decimal(str(trade['quantity']))
+                        sell_price = Decimal(str(trade['price']))
+                        sell_fee = Decimal(str(trade['fee']))
+
+                        pnl = (sell_price * sell_qty) - (avg_cost * sell_qty) - sell_fee
+                        trade_pnls.append(pnl)
+                        total_pnl += pnl
+
+                        if pnl > 0:
+                            winning_trades += 1
+                        elif pnl < 0:
+                            losing_trades += 1
+
+                        # Reduce position
+                        position_cost -= avg_cost * sell_qty
+                        position_qty -= sell_qty
+
+            total_trades = winning_trades + losing_trades
+            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+
+            # Calculate max drawdown
+            max_drawdown = Decimal('0')
+            current_drawdown = Decimal('0')
+            peak = Decimal('0')
+            cumulative_pnl = Decimal('0')
+
+            for pnl in trade_pnls:
+                cumulative_pnl += pnl
+                if cumulative_pnl > peak:
+                    peak = cumulative_pnl
+                drawdown = peak - cumulative_pnl
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+
+            current_drawdown = peak - cumulative_pnl
+
+            # Calculate max drawdown percentage (relative to initial capital)
+            allocation_pct = self.current_allocations.get(strategy_name, 0)
+            allocated_capital = self.initial_capital * (Decimal(str(allocation_pct)) / Decimal('100'))
+
+            max_drawdown_pct = (max_drawdown / allocated_capital * 100) if allocated_capital > 0 else 0
+            current_drawdown_pct = (current_drawdown / allocated_capital * 100) if allocated_capital > 0 else 0
+
+            # Insert into strategy_performance
+            await conn.execute("""
+                INSERT INTO strategy_performance (
+                    time, strategy_name, total_trades, winning_trades,
+                    losing_trades, win_rate, total_pnl, max_drawdown, current_drawdown
+                ) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8)
+            """, strategy_name, total_trades, winning_trades,
+                losing_trades, win_rate, total_pnl, max_drawdown_pct, current_drawdown_pct)
+
+            self.logger.info(
+                f"Performance persisted for {strategy_name}: "
+                f"trades={total_trades}, win_rate={win_rate:.1f}%, "
+                f"pnl=${total_pnl:.2f}, max_dd={max_drawdown_pct:.2f}%"
+            )
+
+        finally:
+            await db.release_connection(conn)

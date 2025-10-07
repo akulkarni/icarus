@@ -20,6 +20,8 @@ tiger:
 trading:
   mode: paper  # paper or live
   initial_capital: 10000
+  position_size_pct: 20  # % of allocated capital per trade
+  position_exit_pct: 50  # % of position to exit on sell signal
   symbols:
     - BTCUSDT
     - ETHUSDT
