@@ -107,7 +107,33 @@ async def init_db(force=False):
         print("  - Setting up compression policies...")
         print()
 
-        await conn.execute(schema_sql)
+        # Use psql to execute schema (handles continuous aggregates correctly)
+        import subprocess
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sql', delete=False) as f:
+            f.write(schema_sql)
+            temp_sql_path = f.name
+
+        try:
+            # Build psql connection string
+            conn_str = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode=require"
+
+            # Execute using psql
+            result = subprocess.run(
+                ['psql', conn_str, '-f', temp_sql_path],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode != 0:
+                print(f"❌ Error executing schema:")
+                print(result.stderr)
+                raise RuntimeError(f"Schema execution failed: {result.stderr}")
+
+        finally:
+            # Clean up temp file
+            Path(temp_sql_path).unlink(missing_ok=True)
 
         print("✅ Database schema initialized successfully")
         print()
