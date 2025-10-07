@@ -8,7 +8,7 @@
 ## Step 1: Clone and Setup
 ```bash
 git clone <repo>
-cd worker-agent-3
+cd project-planner
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
