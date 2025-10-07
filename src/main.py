@@ -158,7 +158,7 @@ class IcarusSystem:
         tasks = []
         for agent in self.agents:
             logger.info(f"Starting agent: {agent.name}")
-            tasks.append(asyncio.create_task(agent.start()))
+            tasks.append(asyncio.create_task(agent.run()))
 
         # Wait for shutdown signal
         await self._shutdown_event.wait()
