@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS current_allocations (
 -- Database fork tracking
 CREATE TABLE IF NOT EXISTS fork_tracking (
     fork_id TEXT PRIMARY KEY,
-    service_id TEXT NOT NULL,
+    parent_service_id TEXT NOT NULL,
     requesting_agent TEXT NOT NULL,
     purpose TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('creating', 'active', 'destroying', 'destroyed')),
