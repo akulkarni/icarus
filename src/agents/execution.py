@@ -6,6 +6,7 @@ Manages positions and persists to database.
 """
 import asyncio
 import logging
+import os
 from decimal import Decimal
 from datetime import datetime
 from typing import Dict
@@ -29,12 +30,33 @@ class TradeExecutionAgent(BaseAgent):
     Paper trading mode: simulates fills instantly at market price.
     """
 
-    def __init__(self, event_bus, initial_capital: Decimal = Decimal('10000')):
+    def __init__(self, event_bus, initial_capital: Decimal = Decimal('10000'), config: dict = None):
         super().__init__("execution", event_bus)
         self.initial_capital = initial_capital
         self.strategy_portfolios: Dict[str, dict] = {}  # strategy_name -> {cash, positions}
         self.current_allocations: Dict[str, float] = {}  # strategy_name -> allocation_pct
         self.current_prices: Dict[str, Decimal] = {}  # symbol -> last price
+
+        # Get config
+        config = config or {}
+        self.trade_mode = config.get('trading', {}).get('mode', 'paper')
+        self.position_exit_pct = Decimal(str(
+            config.get('trading', {}).get('position_exit_pct', 50)
+        )) / Decimal('100')  # Convert 50 -> 0.5
+
+        # Safety check for live trading
+        if self.trade_mode == 'live':
+            if os.getenv('ALLOW_LIVE_TRADING') != 'true':
+                raise RuntimeError(
+                    "Live trading mode requires ALLOW_LIVE_TRADING=true "
+                    "environment variable. This is a safety check to prevent "
+                    "accidental real trading."
+                )
+            logger.warning("=" * 80)
+            logger.warning("LIVE TRADING MODE ENABLED - REAL MONEY AT RISK")
+            logger.warning("=" * 80)
+        else:
+            logger.info("Paper trading mode enabled (simulated trades)")
 
     async def start(self):
         """Start execution agent"""
@@ -169,8 +191,8 @@ class TradeExecutionAgent(BaseAgent):
             self.logger.warning(f"No price data for {signal.symbol}")
             return
 
-        # Sell 50% of position
-        quantity = position_quantity * Decimal('0.5')
+        # Sell configured % of position
+        quantity = position_quantity * self.position_exit_pct
         fee = quantity * price * Decimal('0.001')  # 0.1% fee
 
         # Update portfolio
