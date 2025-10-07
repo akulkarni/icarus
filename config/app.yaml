@@ -1,0 +1,56 @@
+# Application Configuration
+
+database:
+  # Tiger Cloud connection parameters
+  host: ${TIGER_HOST}
+  port: ${TIGER_PORT:5432}
+  database: ${TIGER_DATABASE:tsdb}
+  user: ${TIGER_USER:tsdbadmin}
+  password: ${TIGER_PASSWORD}
+
+tiger:
+  # Tiger Cloud service configuration
+  service_id: ${TIGER_SERVICE_ID}
+
+market_data:
+  # Market data configuration
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+
+strategies:
+  # Strategy configurations
+  momentum:
+    ma_short: 20
+    ma_long: 50
+    warmup_period: 50
+    max_history: 200
+
+  macd:
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+    warmup_period: 50
+    max_history: 200
+
+execution:
+  # Trade execution configuration
+  initial_capital: 10000
+  mode: paper  # paper or live
+  position_size_pct: 0.2  # Use 20% of capital per position
+  fee_pct: 0.001  # 0.1% trading fee
+
+risk:
+  # Risk management configuration
+  max_position_size_pct: 0.2
+  max_daily_loss_pct: 0.05
+  max_exposure_pct: 0.8
+  max_strategy_drawdown_pct: 0.1
+
+meta_strategy:
+  # Meta-strategy configuration
+  evaluation_interval_hours: 6
+
+fork_manager:
+  # Fork management configuration
+  max_concurrent_forks: 10
