@@ -17,7 +17,7 @@ from src.agents.market_data import MarketDataAgent
 from src.agents.strategy import StrategyAgent
 from src.agents.strategies.momentum import MomentumStrategy
 from src.agents.strategies.macd import MACDStrategy
-from src.agents.execution import ExecutionAgent
+from src.agents.execution import TradeExecutionAgent
 from src.agents.meta_strategy import MetaStrategyAgent
 from src.agents.fork_manager import ForkManagerAgent
 from src.agents.risk_monitor import RiskMonitorAgent
@@ -110,13 +110,13 @@ class IcarusSystem:
 
         # 3. Execution Agent
         initial_capital = Decimal(str(config['trading']['initial_capital']))
-        execution_agent = ExecutionAgent(
+        execution_agent = TradeExecutionAgent(
             self.event_bus,
             initial_capital=initial_capital,
             config=config
         )
         self.agents.append(execution_agent)
-        logger.info(f"  - ExecutionAgent created (capital: ${initial_capital})")
+        logger.info(f"  - TradeExecutionAgent created (capital: ${initial_capital})")
 
         # 4. Meta-Strategy Agent
         meta_strategy_agent = MetaStrategyAgent(
