@@ -279,6 +279,7 @@ class RiskAlertEvent(Event):
     message: str = ""
     current_value: Optional[Decimal] = None
     threshold_value: Optional[Decimal] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass(frozen=True)
