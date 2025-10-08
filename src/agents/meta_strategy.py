@@ -32,7 +32,7 @@ class MetaStrategyAgent(BaseAgent):
         self,
         event_bus,
         strategies: List[str],
-        evaluation_interval_hours: int = 6,
+        evaluation_interval_minutes: int = 5,
         min_allocation_pct: float = 5.0,
         max_allocation_pct: float = 50.0
     ):
@@ -42,13 +42,13 @@ class MetaStrategyAgent(BaseAgent):
         Args:
             event_bus: Event bus for publishing allocation events
             strategies: List of strategy names to manage
-            evaluation_interval_hours: Hours between reallocation evaluations
+            evaluation_interval_minutes: Minutes between reallocation evaluations (changed for frequent fork demos)
             min_allocation_pct: Minimum allocation percentage per strategy
             max_allocation_pct: Maximum allocation percentage per strategy
         """
         super().__init__("meta_strategy", event_bus)
         self.strategies = strategies
-        self.evaluation_interval = evaluation_interval_hours
+        self.evaluation_interval_seconds = evaluation_interval_minutes * 60
         self.min_allocation_pct = Decimal(str(min_allocation_pct))
         self.max_allocation_pct = Decimal(str(max_allocation_pct))
         self.current_allocations: Dict[str, float] = {}
@@ -61,9 +61,9 @@ class MetaStrategyAgent(BaseAgent):
         # Initial allocation
         await self._allocate_capital()
 
-        # Periodic reallocation
+        # Periodic reallocation (now every 5 minutes instead of 6 hours for frequent fork demos)
         while True:
-            await asyncio.sleep(self.evaluation_interval * 3600)
+            await asyncio.sleep(self.evaluation_interval_seconds)
             await self._evaluate_and_reallocate()
 
     async def _allocate_capital(self):

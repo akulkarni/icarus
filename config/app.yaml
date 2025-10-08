@@ -58,8 +58,24 @@ strategies:
 
 # Meta-Strategy Configuration
 meta_strategy:
-  evaluation_interval_hours: 6
+  evaluation_interval_minutes: 5  # Changed from hours to minutes for frequent fork demos
   initial_allocation: equal  # equal or custom
+
+# Fork Usage Configuration
+fork_usage:
+  # Strategy validation intervals (per strategy)
+  validation_interval_minutes: 5  # Each strategy validates every 5 minutes
+
+  # Parameter optimization intervals
+  optimization_interval_minutes: 15  # Test new parameters every 15 minutes
+
+  # Meta-strategy scenario testing
+  scenario_analysis_enabled: true  # Test allocation scenarios on every rebalance
+
+  # Fork lifecycle settings
+  default_fork_ttl_seconds: 600  # 10 minutes (shorter for frequent creation)
+  validation_fork_ttl_seconds: 300  # 5 minutes for quick validations
+  cleanup_check_interval_seconds: 60  # Check for expired forks every minute
 
 # Logging Configuration
 logging:

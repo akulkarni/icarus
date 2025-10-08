@@ -39,7 +39,7 @@ class ForkManagerAgent(BaseAgent):
         event_bus,
         parent_service_id: str,
         max_concurrent_forks: int = 10,
-        cleanup_interval_seconds: int = 1800
+        cleanup_interval_seconds: int = 60
     ):
         """
         Initialize fork manager.
@@ -48,7 +48,7 @@ class ForkManagerAgent(BaseAgent):
             event_bus: Event bus for fork lifecycle events
             parent_service_id: Tiger Cloud parent service ID to fork from
             max_concurrent_forks: Maximum number of concurrent forks allowed
-            cleanup_interval_seconds: How often to check for expired forks
+            cleanup_interval_seconds: How often to check for expired forks (default 60s for frequent demos)
         """
         super().__init__("fork_manager", event_bus)
         self.parent_service_id = parent_service_id
