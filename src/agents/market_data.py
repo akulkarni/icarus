@@ -11,6 +11,7 @@ from binance import AsyncClient, BinanceSocketManager
 from src.agents.base import BaseAgent
 from src.models.events import MarketTickEvent
 from src.core.database import get_db_manager_sync
+from src.core.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +24,37 @@ class MarketDataAgent(BaseAgent):
     - MarketTickEvent: Real-time price updates
     """
 
-    def __init__(self, event_bus, symbols: list[str]):
+    def __init__(self, event_bus, symbols: list[str], config=None):
         super().__init__("market_data", event_bus)
         self.symbols = symbols  # e.g., ['BTCUSDT', 'ETHUSDT']
         self.client = None
         self.bm = None
+        self.config = config or get_config().all
 
     async def start(self):
         """Start streaming market data"""
         self.logger.info(f"Starting market data for {self.symbols}")
 
-        # Initialize Binance client (no API key needed for market data)
-        self.client = await AsyncClient.create()
+        # Get market data config
+        provider = self.config.get('market_data', {}).get('provider', 'binance.us')
+        api_key = self.config.get('market_data', {}).get('api_key')
+        api_secret = self.config.get('market_data', {}).get('api_secret')
+
+        # Initialize Binance client with US endpoint if configured
+        if provider == 'binance.us':
+            self.logger.info("Using Binance.US API")
+            self.client = await AsyncClient.create(
+                api_key=api_key or None,
+                api_secret=api_secret or None,
+                tld='us'  # Use binance.us domain
+            )
+        else:
+            self.logger.info("Using Binance.com API")
+            self.client = await AsyncClient.create(
+                api_key=api_key or None,
+                api_secret=api_secret or None
+            )
+
         self.bm = BinanceSocketManager(self.client)
 
         # Create tasks for each symbol

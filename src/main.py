@@ -74,7 +74,7 @@ class IcarusSystem:
 
         # 1. Market Data Agent
         symbols = config['trading']['symbols']
-        market_data_agent = MarketDataAgent(self.event_bus, symbols)
+        market_data_agent = MarketDataAgent(self.event_bus, symbols, config=config)
         self.agents.append(market_data_agent)
         logger.info(f"  - MarketDataAgent created for symbols: {symbols}")
 
