@@ -81,3 +81,22 @@ class StrategyAgent(BaseAgent):
     def get_prices_df(self) -> pd.DataFrame:
         """Get price history as DataFrame"""
         return pd.DataFrame(self.price_history)
+
+    def add_price(self, price: Decimal, volume: Decimal = Decimal('1.0')):
+        """
+        Add price to history (for testing)
+
+        Args:
+            price: Price to add
+            volume: Volume (default 1.0)
+        """
+        import time
+        self.price_history.append({
+            'time': time.time(),
+            'price': float(price),
+            'volume': float(volume)
+        })
+
+        # Keep only recent history
+        if len(self.price_history) > self.max_history:
+            self.price_history.pop(0)
