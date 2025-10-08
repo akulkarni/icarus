@@ -18,13 +18,25 @@ tiger:
 
 # Trading Configuration
 trading:
-  mode: paper  # paper or live
+  mode: paper  # paper or real - DEFAULT TO PAPER
   initial_capital: 10000
   position_size_pct: 20  # % of allocated capital per trade
   position_exit_pct: 50  # % of position to exit on sell signal
   symbols:
     - BTCUSDT
     - ETHUSDT
+
+# Binance API Configuration
+binance:
+  api_key: ${BINANCE_API_KEY:}  # Set via environment variable
+  api_secret: ${BINANCE_API_SECRET:}  # Set via environment variable
+  testnet: true  # ALWAYS START WITH TESTNET
+  testnet_url: "https://testnet.binance.vision"
+
+# Slippage simulation for paper trading
+slippage:
+  enabled: true
+  percentage: 0.1  # 0.1% = 10 basis points
 
 # Risk Configuration
 risk:
