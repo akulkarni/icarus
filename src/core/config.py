@@ -4,6 +4,7 @@ Configuration Management
 Loads configuration from YAML and environment variables.
 """
 import os
+from dotenv import load_dotenv
 import yaml
 from pathlib import Path
 from typing import Any, Dict
@@ -15,6 +16,8 @@ class Config:
     def __init__(self, config_path: str = "config/app.yaml"):
         self.config_path = Path(config_path)
         self._config: Dict[str, Any] = {}
+        # Load .env file before loading config
+        load_dotenv()
         self.load()
 
     def load(self):
