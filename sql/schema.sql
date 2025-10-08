@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS strategy_performance (
     total_trades INTEGER NOT NULL DEFAULT 0,
     winning_trades INTEGER NOT NULL DEFAULT 0,
     losing_trades INTEGER NOT NULL DEFAULT 0,
-    win_rate NUMERIC(5, 4),
+    win_rate NUMERIC(5, 2),  -- Percentage: 0.00-100.00%
     total_pnl NUMERIC(20, 8) NOT NULL DEFAULT 0,
     sharpe_ratio NUMERIC(10, 6),
     max_drawdown NUMERIC(10, 6),
