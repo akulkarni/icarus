@@ -26,12 +26,6 @@ trading:
     - BTCUSDT
     - ETHUSDT
 
-# Market Data Configuration
-market_data:
-  provider: binance.us  # binance.us or binance.com
-  api_key: ${BINANCE_API_KEY:}
-  api_secret: ${BINANCE_API_SECRET:}
-
 # Risk Configuration
 risk:
   max_position_size_pct: 20  # % of allocated capital

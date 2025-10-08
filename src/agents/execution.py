@@ -261,9 +261,9 @@ class TradeExecutionAgent(BaseAgent):
                 await conn.execute("""
                     INSERT INTO trades (
                         time, strategy_name, symbol, side, quantity,
-                        price, fee, trade_mode
+                        price, value, fee, trade_mode
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 """,
                     trade.time,
                     trade.strategy_name,
@@ -271,6 +271,7 @@ class TradeExecutionAgent(BaseAgent):
                     trade.side,
                     trade.quantity,
                     trade.price,
+                    trade.value,
                     trade.fee,
                     trade.trade_mode
                 )
@@ -326,7 +327,7 @@ class TradeExecutionAgent(BaseAgent):
 
     async def _calculate_and_persist_performance(self, strategy_name: str):
         """Calculate performance metrics for a strategy"""
-        db = get_db_manager_sync()
+        db = get_db_manager()
         conn = await db.get_connection()
 
         try:

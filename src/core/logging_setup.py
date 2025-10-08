@@ -41,8 +41,8 @@ def setup_logging(config):
     # Format
     if log_format == 'json':
         formatter = jsonlogger.JsonFormatter(
-            '%(asctime)s %(levelname)s %(name)s %(message)s',
-            rename_fields={'asctime': '@timestamp', 'levelname': 'severity'}
+            '%(timestamp)s %(level)s %(name)s %(message)s',
+            rename_fields={'timestamp': '@timestamp', 'level': 'severity'}
         )
     else:
         formatter = logging.Formatter(

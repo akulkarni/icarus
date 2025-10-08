@@ -31,17 +31,14 @@ A multi-agent autonomous trading system built with Python, TimescaleDB, and Tige
 
 ## System Architecture
 
-The Icarus Trading System consists of 6 autonomous agents:
+The Icarus Trading System consists of 7 autonomous agents:
 
-1. **Market Data Agent** - Streams real-time market data from Binance
-2. **Momentum Strategy Agent** - Moving average crossover signals
-3. **MACD Strategy Agent** - MACD indicator signals
-4. **Execution Agent** - Executes trades and manages positions
-5. **Meta-Strategy Agent** - Dynamically allocates capital across strategies
-6. **Risk Monitor Agent** - Enforces risk limits and emergency halts
-7. **Fork Manager Agent** - Creates database forks for backtesting
-
-*Note: PR Agent (narrative generation) will be added in Day 2.*
+1. **Market Data Agent** - Streams real-time market data
+2. **Strategy Agents** - Generate trading signals (Momentum, MACD)
+3. **Execution Agent** - Executes trades and manages positions
+4. **Meta-Strategy Agent** - Dynamically allocates capital across strategies
+5. **Risk Monitor Agent** - Enforces risk limits and emergency halts
+6. **Fork Manager Agent** - Creates database forks for backtesting
 
 ## Configuration
 

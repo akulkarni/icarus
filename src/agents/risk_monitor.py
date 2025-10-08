@@ -16,7 +16,7 @@ from src.models.events import (
     EmergencyHaltEvent,
     MarketTickEvent
 )
-from src.core.database import get_db_manager_sync
+from src.core.database import get_db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +201,7 @@ class RiskMonitorAgent(BaseAgent):
 
     async def _check_exposure(self):
         """Check if total exposure exceeds limit"""
-        db = get_db_manager_sync()
+        db = get_db_manager()
         conn = await db.get_connection()
 
         try:
@@ -346,7 +346,7 @@ class RiskMonitorAgent(BaseAgent):
 
     async def _check_strategy_drawdowns(self):
         """Check per-strategy drawdown limits"""
-        db = get_db_manager_sync()
+        db = get_db_manager()
         conn = await db.get_connection()
 
         try:
@@ -397,12 +397,10 @@ class RiskMonitorAgent(BaseAgent):
         Returns:
             Current portfolio value or None if unavailable
         """
-        db = get_db_manager_sync()
-        conn = None
+        db = get_db_manager()
+        conn = await db.get_connection()
 
         try:
-            conn = await db.get_connection()
-
             # Get total cash and positions
             result = await conn.fetchrow("""
                 SELECT
@@ -436,14 +434,10 @@ class RiskMonitorAgent(BaseAgent):
             return total_value
 
         except Exception as e:
-            logger.error(f"Error getting portfolio value: {e}")
+            logger.error(f"Error getting portfolio value: {e}", exc_info=True)
             return None
         finally:
-            if conn is not None:
-                try:
-                    await db.release_connection(conn)
-                except Exception as e:
-                    logger.warning(f"Failed to release connection: {e}")
+            await db.release_connection(conn)
 
     def is_halt_active(self) -> bool:
         """Check if emergency halt is active"""

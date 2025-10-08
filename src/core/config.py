@@ -7,10 +7,6 @@ import os
 import yaml
 from pathlib import Path
 from typing import Any, Dict
-from dotenv import load_dotenv
-
-# Load .env file at module import time
-load_dotenv()
 
 
 class Config:
