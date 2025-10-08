@@ -80,13 +80,13 @@ async def dashboard():
     return FileResponse(str(static_dir / "index.html"))
 
 
-from src.core.database import get_db_manager
+from src.core.database import get_db_manager_sync
 
 
 @app.get("/api/portfolio")
 async def get_portfolio():
     """Get current portfolio summary"""
-    db = await get_db_manager()
+    db = get_db_manager_sync()
     conn = await db.get_connection()
 
     try:
@@ -121,7 +121,7 @@ async def get_portfolio():
 @app.get("/api/trades/recent")
 async def get_recent_trades(limit: int = 50):
     """Get recent trades"""
-    db = await get_db_manager()
+    db = get_db_manager_sync()
     conn = await db.get_connection()
 
     try:
@@ -142,7 +142,7 @@ async def get_recent_trades(limit: int = 50):
 @app.get("/api/forks/active")
 async def get_active_forks():
     """Get active database forks"""
-    db = await get_db_manager()
+    db = get_db_manager_sync()
     conn = await db.get_connection()
 
     try:
