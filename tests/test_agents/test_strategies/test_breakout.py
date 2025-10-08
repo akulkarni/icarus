@@ -34,17 +34,37 @@ def test_calculate_rolling_bands():
 
 @pytest.mark.asyncio
 async def test_breakout_insufficient_data(breakout_strategy):
+    import pandas as pd
+    from datetime import datetime
+
+    # Add data through price_history (simulating real tick events)
     for i in range(10):
-        breakout_strategy.add_price(Decimal(str(100 + i)))
+        breakout_strategy.price_history.append({
+            'time': datetime.now(),
+            'price': 100.0 + i,
+            'volume': 1000.0
+        })
     signal = await breakout_strategy.analyze()
     assert signal is None
 
 @pytest.mark.asyncio
 async def test_breakout_buy_signal(breakout_strategy):
+    import pandas as pd
+    from datetime import datetime
+
     # Flat then breakout up
     for i in range(20):
-        breakout_strategy.add_price(Decimal('100'))
-    breakout_strategy.add_price(Decimal('110'))  # Breakout
+        breakout_strategy.price_history.append({
+            'time': datetime.now(),
+            'price': 100.0,
+            'volume': 1000.0
+        })
+    # Breakout
+    breakout_strategy.price_history.append({
+        'time': datetime.now(),
+        'price': 110.0,
+        'volume': 2000.0
+    })
 
     signal = await breakout_strategy.analyze()
     if signal:

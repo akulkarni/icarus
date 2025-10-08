@@ -53,16 +53,16 @@ class BreakoutStrategy(StrategyAgent):
 
     async def analyze(self) -> Optional[TradingSignalEvent]:
         """Generate trading signal"""
-        if len(self.prices) < self.params['period']:
+        df = self.get_prices_df()
+
+        if len(df) < self.params['period']:
             return None
 
-        # Create dataframe with OHLCV
-        df = pd.DataFrame({
-            'price': [float(p) for p in self.prices],
-            'high': self.highs[-len(self.prices):] if self.highs else [float(p) for p in self.prices],
-            'low': self.lows[-len(self.prices):] if self.lows else [float(p) for p in self.prices],
-            'volume': self.volumes[-len(self.prices):] if self.volumes else [1.0] * len(self.prices)
-        })
+        # Use price as high/low if not provided (simplified for now)
+        if 'high' not in df.columns:
+            df['high'] = df['price']
+        if 'low' not in df.columns:
+            df['low'] = df['price']
 
         # Calculate bands
         df = calculate_rolling_high_low(df, period=self.params['period'])
