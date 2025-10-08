@@ -12,7 +12,7 @@ from typing import Dict, List
 
 from src.agents.base import BaseAgent
 from src.models.events import AllocationEvent, TradeExecutedEvent
-from src.core.database import get_db_manager
+from src.core.database import get_db_manager_sync
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class MetaStrategyAgent(BaseAgent):
         Returns:
             Dictionary of strategy_name -> allocation_percentage
         """
-        db = get_db_manager()
+        db = get_db_manager_sync()
         conn = await db.get_connection()
 
         try:
