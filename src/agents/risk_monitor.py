@@ -398,9 +398,11 @@ class RiskMonitorAgent(BaseAgent):
             Current portfolio value or None if unavailable
         """
         db = get_db_manager_sync()
-        conn = await db.get_connection()
+        conn = None
 
         try:
+            conn = await db.get_connection()
+
             # Get total cash and positions
             result = await conn.fetchrow("""
                 SELECT
@@ -434,10 +436,14 @@ class RiskMonitorAgent(BaseAgent):
             return total_value
 
         except Exception as e:
-            logger.error(f"Error getting portfolio value: {e}", exc_info=True)
+            logger.error(f"Error getting portfolio value: {e}")
             return None
         finally:
-            await db.release_connection(conn)
+            if conn is not None:
+                try:
+                    await db.release_connection(conn)
+                except Exception as e:
+                    logger.warning(f"Failed to release connection: {e}")
 
     def is_halt_active(self) -> bool:
         """Check if emergency halt is active"""

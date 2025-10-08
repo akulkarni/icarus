@@ -55,7 +55,8 @@ class MarketDataAgent(BaseAgent):
                 api_secret=api_secret or None
             )
 
-        self.bm = BinanceSocketManager(self.client)
+        # Create socket manager with larger queue to handle high-frequency data
+        self.bm = BinanceSocketManager(self.client, user_timeout=60)
 
         # Create tasks for each symbol
         tasks = [self._stream_symbol(symbol) for symbol in self.symbols]
