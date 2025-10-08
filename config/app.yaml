@@ -50,6 +50,22 @@ strategies:
     signal_period: 9
     warmup_period: 50
 
+  breakout:
+    enabled: true
+    symbol: SOLUSDT
+    period: 20
+    volume_multiplier: 1.5
+    warmup_period: 20
+
+  stochastic:
+    enabled: true
+    symbol: ETHUSDT
+    k_period: 14
+    d_period: 3
+    oversold: 20
+    overbought: 80
+    warmup_period: 17
+
 # Meta-Strategy Configuration
 meta_strategy:
   evaluation_interval_minutes: 5  # Changed from hours to minutes for frequent fork demos
