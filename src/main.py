@@ -84,10 +84,7 @@ class IcarusSystem:
         if config['strategies']['momentum']['enabled']:
             momentum_strategy = MomentumStrategy(
                 self.event_bus,
-                symbol=config['strategies']['momentum']['symbol'],
-                ma_short=config['strategies']['momentum']['ma_short'],
-                ma_long=config['strategies']['momentum']['ma_long'],
-                warmup_period=config['strategies']['momentum']['warmup_period']
+                symbol=config['strategies']['momentum']['symbol']
             )
             self.agents.append(momentum_strategy)
             strategies.append(momentum_strategy)
@@ -97,11 +94,7 @@ class IcarusSystem:
         if config['strategies']['macd']['enabled']:
             macd_strategy = MACDStrategy(
                 self.event_bus,
-                symbol=config['strategies']['macd']['symbol'],
-                fast_period=config['strategies']['macd']['fast_period'],
-                slow_period=config['strategies']['macd']['slow_period'],
-                signal_period=config['strategies']['macd']['signal_period'],
-                warmup_period=config['strategies']['macd']['warmup_period']
+                symbol=config['strategies']['macd']['symbol']
             )
             self.agents.append(macd_strategy)
             strategies.append(macd_strategy)
@@ -138,6 +131,7 @@ class IcarusSystem:
         logger.info(f"  - ForkManagerAgent created (parent service: {parent_service_id})")
 
         # 6. Risk Monitor Agent
+        risk_config = config['risk']
         risk_monitor_agent = RiskMonitorAgent(
             self.event_bus,
             config=risk_config,
