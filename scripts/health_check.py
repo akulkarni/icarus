@@ -5,7 +5,13 @@ Verifies system is running correctly.
 """
 import asyncio
 import asyncpg
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
+
+# Add parent directory to path so we can import src
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from src.core.config import get_config
 
 
