@@ -143,3 +143,75 @@ async def get_active_forks():
 
     finally:
         await db.release_connection(conn)
+
+
+# ============================================================================
+# WEBSOCKET FOR REAL-TIME UPDATES
+# ============================================================================
+
+from src.core.event_bus import get_event_bus
+from src.models.events import (
+    MarketTickEvent,
+    TradingSignalEvent,
+    TradeExecutedEvent,
+    AllocationEvent,
+    ForkCreatedEvent,
+    ForkCompletedEvent
+)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket connection for real-time updates.
+
+    Subscribes to key event types and forwards to connected clients.
+    """
+    await websocket.accept()
+    active_connections.append(websocket)
+    logger.info(f"WebSocket connected. Total: {len(active_connections)}")
+
+    try:
+        # Subscribe to relevant events
+        event_bus = await get_event_bus()
+        market_queue = event_bus.subscribe(MarketTickEvent)
+        signal_queue = event_bus.subscribe(TradingSignalEvent)
+        trade_queue = event_bus.subscribe(TradeExecutedEvent)
+        allocation_queue = event_bus.subscribe(AllocationEvent)
+        fork_created_queue = event_bus.subscribe(ForkCreatedEvent)
+        fork_completed_queue = event_bus.subscribe(ForkCompletedEvent)
+
+        # Forward events to WebSocket
+        async def forward_events():
+            while True:
+                # Check all queues (non-blocking)
+                queues = {
+                    'market': market_queue,
+                    'signal': signal_queue,
+                    'trade': trade_queue,
+                    'allocation': allocation_queue,
+                    'fork_created': fork_created_queue,
+                    'fork_completed': fork_completed_queue
+                }
+
+                for event_type, queue in queues.items():
+                    if not queue.empty():
+                        event = await queue.get()
+                        await websocket.send_json({
+                            'type': event_type,
+                            'data': event.to_dict(),
+                            'timestamp': datetime.now().isoformat()
+                        })
+
+                await asyncio.sleep(0.1)  # 100ms poll
+
+        await forward_events()
+
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total: {len(active_connections)}")
+
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        if websocket in active_connections:
+            active_connections.remove(websocket)
