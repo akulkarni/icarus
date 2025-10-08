@@ -21,6 +21,7 @@ from src.agents.execution import TradeExecutionAgent as ExecutionAgent
 from src.agents.meta_strategy import MetaStrategyAgent
 from src.agents.fork_manager import ForkManagerAgent
 from src.agents.risk_monitor import RiskMonitorAgent
+from src.agents.pr_agent import PRAgent
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +140,14 @@ class IcarusSystem:
         )
         self.agents.append(risk_monitor_agent)
         logger.info("  - RiskMonitorAgent created")
+
+        # 7. PR Agent
+        pr_agent = PRAgent(
+            self.event_bus,
+            db_manager=self.db_manager
+        )
+        self.agents.append(pr_agent)
+        logger.info("  - PRAgent created")
 
     async def start(self):
         """Start all agents"""
