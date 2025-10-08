@@ -41,11 +41,10 @@ class IcarusSystem:
         logger.info("ICARUS TRADING SYSTEM - INITIALIZING")
         logger.info("=" * 80)
 
-        # Load configuration (if not already loaded)
-        if self.config is None:
-            logger.info("Loading configuration...")
-            self.config = load_config()
-            logger.info("Configuration loaded")
+        # Load configuration
+        logger.info("Loading configuration...")
+        self.config = load_config()
+        logger.info("Configuration loaded")
 
         # Initialize database
         logger.info("Initializing database connection...")
@@ -79,7 +78,7 @@ class IcarusSystem:
         logger.info(f"  - MarketDataAgent created for symbols: {symbols}")
 
         # 2. Strategy Agents
-        strategy_names = []  # Collect strategy names
+        strategies = []
 
         # Momentum Strategy
         if config['strategies']['momentum']['enabled']:
@@ -91,7 +90,7 @@ class IcarusSystem:
                 warmup_period=config['strategies']['momentum']['warmup_period']
             )
             self.agents.append(momentum_strategy)
-            strategy_names.append('momentum')  # Add name to list
+            strategies.append(momentum_strategy)
             logger.info("  - MomentumStrategy created")
 
         # MACD Strategy
@@ -105,7 +104,7 @@ class IcarusSystem:
                 warmup_period=config['strategies']['macd']['warmup_period']
             )
             self.agents.append(macd_strategy)
-            strategy_names.append('macd')  # Add name to list
+            strategies.append(macd_strategy)
             logger.info("  - MACDStrategy created")
 
         # 3. Execution Agent
@@ -121,7 +120,7 @@ class IcarusSystem:
         # 4. Meta-Strategy Agent
         meta_strategy_agent = MetaStrategyAgent(
             self.event_bus,
-            strategies=strategy_names,  # Pass string list, not agent objects
+            strategies=strategies,
             evaluation_interval_hours=config['meta_strategy']['evaluation_interval_hours']
         )
         self.agents.append(meta_strategy_agent)
@@ -142,8 +141,11 @@ class IcarusSystem:
         risk_config = config['risk']
         risk_monitor_agent = RiskMonitorAgent(
             self.event_bus,
-            config=risk_config,  # Pass entire config dict
-            initial_portfolio_value=initial_capital  # Use correct parameter name
+            initial_capital=initial_capital,
+            max_position_size_pct=risk_config['max_position_size_pct'],
+            max_daily_loss_pct=risk_config['max_daily_loss_pct'],
+            max_exposure_pct=risk_config['max_exposure_pct'],
+            max_strategy_drawdown_pct=risk_config['max_strategy_drawdown_pct']
         )
         self.agents.append(risk_monitor_agent)
         logger.info("  - RiskMonitorAgent created")
@@ -158,7 +160,7 @@ class IcarusSystem:
         tasks = []
         for agent in self.agents:
             logger.info(f"Starting agent: {agent.name}")
-            tasks.append(asyncio.create_task(agent.run()))
+            tasks.append(asyncio.create_task(agent.start()))
 
         # Wait for shutdown signal
         await self._shutdown_event.wait()
@@ -207,15 +209,14 @@ class IcarusSystem:
 
 async def main():
     """Main entry point"""
-    # Load configuration first
-    from src.core.config import load_config
-    from src.core.logging_setup import setup_logging
-
-    config = load_config()
-    setup_logging(config)
+    # Basic logging setup (will be enhanced by logging_setup.py later)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)8s] %(name)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
     system = IcarusSystem()
-    system.config = config  # Pass config loaded in main()
 
     # Setup signal handlers
     def signal_handler(signum, frame):

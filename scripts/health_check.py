@@ -5,7 +5,7 @@ Verifies system is running correctly.
 """
 import asyncio
 import asyncpg
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from src.core.config import get_config
 
 
@@ -103,8 +103,7 @@ async def check_agents():
             return False
 
         for agent in agents:
-            now = datetime.now(timezone.utc)
-            elapsed = (now - agent['last_heartbeat']).total_seconds()
+            elapsed = (datetime.now(agent['last_heartbeat'].tzinfo) - agent['last_heartbeat']).total_seconds()
             print(f"✅ {agent['agent_name']}: {agent['status']} (heartbeat {elapsed:.0f}s ago)")
 
         await conn.close()
