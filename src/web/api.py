@@ -7,6 +7,9 @@ Provides:
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
 from typing import List
 import asyncio
 import logging
@@ -28,6 +31,11 @@ app.add_middleware(
 
 # WebSocket connections tracking
 active_connections: List[WebSocket] = []
+
+# Mount static files
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.on_event("startup")
@@ -63,6 +71,13 @@ async def health():
         "status": "healthy",
         "timestamp": datetime.now().isoformat()
     }
+
+
+@app.get("/dashboard")
+async def dashboard():
+    """Serve dashboard HTML"""
+    static_dir = Path(__file__).parent / "static"
+    return FileResponse(str(static_dir / "index.html"))
 
 
 from src.core.database import get_db_manager
