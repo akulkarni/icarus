@@ -261,9 +261,9 @@ class TradeExecutionAgent(BaseAgent):
                 await conn.execute("""
                     INSERT INTO trades (
                         time, strategy_name, symbol, side, quantity,
-                        price, value, fee, trade_mode
+                        price, fee, trade_mode
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 """,
                     trade.time,
                     trade.strategy_name,
@@ -271,7 +271,6 @@ class TradeExecutionAgent(BaseAgent):
                     trade.side,
                     trade.quantity,
                     trade.price,
-                    trade.value,
                     trade.fee,
                     trade.trade_mode
                 )
