@@ -23,6 +23,26 @@ from src.core.database import get_db_manager_sync
 logger = logging.getLogger(__name__)
 
 
+def calculate_slippage_price(market_price: Decimal, side: str, slippage_pct: Decimal) -> Decimal:
+    """
+    Calculate fill price with slippage
+
+    Args:
+        market_price: Current market price
+        side: 'buy' or 'sell'
+        slippage_pct: Slippage as decimal (0.001 = 0.1%)
+
+    Returns:
+        Price after slippage
+    """
+    if side == 'buy':
+        # Buying costs more (unfavorable slippage)
+        return market_price * (Decimal('1') + slippage_pct)
+    else:  # sell
+        # Selling gets less (unfavorable slippage)
+        return market_price * (Decimal('1') - slippage_pct)
+
+
 class TradeExecutionAgent(BaseAgent):
     """
     Executes trades based on signals.
@@ -139,18 +159,27 @@ class TradeExecutionAgent(BaseAgent):
             self.logger.warning(f"Insufficient cash for {signal.symbol}: ${portfolio['cash']}")
             return
 
-        # Get current price
-        price = self.current_prices.get(signal.symbol)
-        if not price:
+        # Get current market price
+        market_price = self.current_prices.get(signal.symbol)
+        if not market_price:
             self.logger.warning(f"No price data for {signal.symbol}")
             return
 
+        # Apply slippage for paper trading
+        slippage_enabled = self.config.get('slippage', {}).get('enabled', False)
+        slippage_pct = Decimal(str(self.config.get('slippage', {}).get('percentage', 0.1))) / Decimal('100')
+
+        if slippage_enabled:
+            fill_price = calculate_slippage_price(market_price, 'buy', slippage_pct)
+        else:
+            fill_price = market_price
+
         # Calculate quantity and fee
-        quantity = cash_to_use / price
-        fee = quantity * price * Decimal('0.001')  # 0.1% fee
+        quantity = cash_to_use / fill_price
+        fee = quantity * fill_price * Decimal('0.001')  # 0.1% fee
 
         # Update portfolio
-        portfolio['cash'] -= (quantity * price + fee)
+        portfolio['cash'] -= (quantity * fill_price + fee)
 
         if signal.symbol not in portfolio['positions']:
             portfolio['positions'][signal.symbol] = Decimal('0')
@@ -164,7 +193,7 @@ class TradeExecutionAgent(BaseAgent):
             symbol=signal.symbol,
             side='buy',
             quantity=quantity,
-            price=price,
+            price=fill_price,
             fee=fee,
             trade_mode='paper'
         )
@@ -178,13 +207,13 @@ class TradeExecutionAgent(BaseAgent):
             symbol=signal.symbol,
             side='buy',
             quantity=quantity,
-            price=price,
+            price=fill_price,
             fee=fee,
             order_id=None
         ))
 
         self.logger.info(
-            f"Executed BUY: {quantity:.6f} {signal.symbol} @ ${price} "
+            f"Executed BUY: {quantity:.6f} {signal.symbol} @ ${fill_price} "
             f"(fee: ${fee:.2f}, remaining cash: ${portfolio['cash']:.2f})"
         )
 
@@ -200,18 +229,27 @@ class TradeExecutionAgent(BaseAgent):
             self.logger.debug(f"No position in {signal.symbol} to sell")
             return
 
-        # Get current price
-        price = self.current_prices.get(signal.symbol)
-        if not price:
+        # Get current market price
+        market_price = self.current_prices.get(signal.symbol)
+        if not market_price:
             self.logger.warning(f"No price data for {signal.symbol}")
             return
 
+        # Apply slippage for paper trading
+        slippage_enabled = self.config.get('slippage', {}).get('enabled', False)
+        slippage_pct = Decimal(str(self.config.get('slippage', {}).get('percentage', 0.1))) / Decimal('100')
+
+        if slippage_enabled:
+            fill_price = calculate_slippage_price(market_price, 'sell', slippage_pct)
+        else:
+            fill_price = market_price
+
         # Sell configurable % of position
         quantity = position_quantity * self.position_exit_pct
-        fee = quantity * price * Decimal('0.001')  # 0.1% fee
+        fee = quantity * fill_price * Decimal('0.001')  # 0.1% fee
 
         # Update portfolio
-        cash_received = quantity * price - fee
+        cash_received = quantity * fill_price - fee
         portfolio['cash'] += cash_received
         portfolio['positions'][signal.symbol] -= quantity
 
@@ -227,7 +265,7 @@ class TradeExecutionAgent(BaseAgent):
             symbol=signal.symbol,
             side='sell',
             quantity=quantity,
-            price=price,
+            price=fill_price,
             fee=fee,
             trade_mode='paper'
         )
@@ -241,13 +279,13 @@ class TradeExecutionAgent(BaseAgent):
             symbol=signal.symbol,
             side='sell',
             quantity=quantity,
-            price=price,
+            price=fill_price,
             fee=fee,
             order_id=None
         ))
 
         self.logger.info(
-            f"Executed SELL: {quantity:.6f} {signal.symbol} @ ${price} "
+            f"Executed SELL: {quantity:.6f} {signal.symbol} @ ${fill_price} "
             f"(fee: ${fee:.2f}, cash received: ${cash_received:.2f}, new cash: ${portfolio['cash']:.2f})"
         )
 
