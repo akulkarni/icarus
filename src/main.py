@@ -21,6 +21,7 @@ from src.agents.execution import TradeExecutionAgent as ExecutionAgent
 from src.agents.meta_strategy import MetaStrategyAgent
 from src.agents.fork_manager import ForkManagerAgent
 from src.agents.risk_monitor import RiskMonitorAgent
+from src.web.server import start_web_server
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class IcarusSystem:
         self.event_bus = None
         self.db_manager = None
         self.agents = []
+        self.web_server = None
         self._shutdown_event = asyncio.Event()
 
     async def initialize(self):
@@ -66,6 +68,11 @@ class IcarusSystem:
         logger.info("Creating agents...")
         await self._create_agents()
         logger.info(f"Created {len(self.agents)} agents")
+
+        # Start web server
+        logger.info("Starting web dashboard...")
+        self.web_server = start_web_server(host="0.0.0.0", port=8000)
+        logger.info("Web dashboard available at http://localhost:8000/dashboard")
 
     async def _create_agents(self):
         """Create all agent instances"""
