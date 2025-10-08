@@ -17,7 +17,7 @@ from src.agents.market_data import MarketDataAgent
 from src.agents.strategy import StrategyAgent
 from src.agents.strategies.momentum import MomentumStrategy
 from src.agents.strategies.macd import MACDStrategy
-from src.agents.execution import ExecutionAgent
+from src.agents.execution import TradeExecutionAgent as ExecutionAgent
 from src.agents.meta_strategy import MetaStrategyAgent
 from src.agents.fork_manager import ForkManagerAgent
 from src.agents.risk_monitor import RiskMonitorAgent
@@ -121,7 +121,7 @@ class IcarusSystem:
         meta_strategy_agent = MetaStrategyAgent(
             self.event_bus,
             strategies=strategies,
-            evaluation_interval_hours=config['meta_strategy']['evaluation_interval_hours']
+            evaluation_interval_minutes=config['meta_strategy']['evaluation_interval_minutes']
         )
         self.agents.append(meta_strategy_agent)
         logger.info("  - MetaStrategyAgent created")
@@ -138,14 +138,10 @@ class IcarusSystem:
         logger.info(f"  - ForkManagerAgent created (parent service: {parent_service_id})")
 
         # 6. Risk Monitor Agent
-        risk_config = config['risk']
         risk_monitor_agent = RiskMonitorAgent(
             self.event_bus,
-            initial_capital=initial_capital,
-            max_position_size_pct=risk_config['max_position_size_pct'],
-            max_daily_loss_pct=risk_config['max_daily_loss_pct'],
-            max_exposure_pct=risk_config['max_exposure_pct'],
-            max_strategy_drawdown_pct=risk_config['max_strategy_drawdown_pct']
+            config=risk_config,
+            initial_portfolio_value=initial_capital
         )
         self.agents.append(risk_monitor_agent)
         logger.info("  - RiskMonitorAgent created")
