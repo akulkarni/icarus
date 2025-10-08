@@ -14,12 +14,14 @@ from src.models.events import TradingSignalEvent
 class MACDStrategy(StrategyAgent):
     """MACD indicator strategy"""
 
-    def __init__(self, event_bus, symbol: str = 'BTCUSDT'):
+    def __init__(self, event_bus, symbol: str = 'BTCUSDT',
+                 fast_period: int = 12, slow_period: int = 26,
+                 signal_period: int = 9, warmup_period: int = 50):
         params = {
-            'fast_period': 12,
-            'slow_period': 26,
-            'signal_period': 9,
-            'warmup_period': 50,
+            'fast_period': fast_period,      # Use parameter instead of hardcoded 12
+            'slow_period': slow_period,      # Use parameter instead of hardcoded 26
+            'signal_period': signal_period,  # Use parameter instead of hardcoded 9
+            'warmup_period': warmup_period,  # Use parameter instead of hardcoded 50
             'max_history': 200
         }
         super().__init__('macd', event_bus, symbol, params)
