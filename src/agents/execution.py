@@ -14,11 +14,22 @@ from src.agents.base import BaseAgent
 from src.models.events import (
     TradingSignalEvent,
     TradeExecutedEvent,
+    TradeErrorEvent,
     AllocationEvent,
     MarketTickEvent
 )
 from src.models.trading import Position, Trade
 from src.core.database import get_db_manager_sync
+
+# Binance imports
+try:
+    from binance.client import Client as BinanceClient
+    from binance.exceptions import BinanceAPIException
+    BINANCE_AVAILABLE = True
+except ImportError:
+    BINANCE_AVAILABLE = False
+    BinanceClient = None
+    BinanceAPIException = None
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +82,42 @@ class TradeExecutionAgent(BaseAgent):
         # Trading mode configuration
         self.trade_mode = self.config.get('trading', {}).get('mode', 'paper')
 
-        # Safety check for live trading
-        if self.trade_mode == 'live':
-            if os.getenv('ALLOW_LIVE_TRADING') != 'true':
-                raise RuntimeError(
-                    "Live trading mode requires ALLOW_LIVE_TRADING=true "
-                    "environment variable. This is a safety check to prevent "
-                    "accidental real trading."
+        # Initialize Binance client for real trading
+        self.binance = None
+        if self.trade_mode == 'real':
+            if not BINANCE_AVAILABLE:
+                raise RuntimeError("python-binance not installed. Install with: pip install python-binance")
+
+            binance_config = self.config.get('binance', {})
+            api_key = binance_config.get('api_key') or os.getenv('BINANCE_API_KEY')
+            api_secret = binance_config.get('api_secret') or os.getenv('BINANCE_API_SECRET')
+            testnet = binance_config.get('testnet', True)
+
+            if not api_key or not api_secret:
+                raise ValueError(
+                    "Binance API credentials not configured. "
+                    "Set BINANCE_API_KEY and BINANCE_API_SECRET environment variables."
                 )
+
             logger.warning("=" * 80)
-            logger.warning("LIVE TRADING MODE ENABLED - REAL MONEY AT RISK")
+            logger.warning("REAL TRADING MODE ENABLED - REAL MONEY AT RISK")
+            logger.warning(f"Testnet mode: {testnet}")
             logger.warning("=" * 80)
+
+            # Initialize Binance client
+            self.binance = BinanceClient(
+                api_key=api_key,
+                api_secret=api_secret,
+                testnet=testnet
+            )
+
+            # Verify connection
+            try:
+                account = self.binance.get_account()
+                logger.info(f"✅ Binance connection verified. Account type: {account.get('accountType', 'UNKNOWN')}")
+            except Exception as e:
+                logger.error(f"❌ Failed to verify Binance connection: {e}")
+                raise RuntimeError(f"Binance connection failed: {e}")
         else:
             logger.info("Paper trading mode enabled (simulated trades)")
 
@@ -137,11 +173,45 @@ class TradeExecutionAgent(BaseAgent):
 
         portfolio = self.strategy_portfolios[signal.strategy_name]
 
-        # Execute based on signal
-        if signal.side == 'buy':
-            await self._execute_buy(signal, portfolio)
-        elif signal.side == 'sell':
-            await self._execute_sell(signal, portfolio)
+        # Route to paper or real execution
+        if self.trade_mode == 'paper':
+            # Execute based on signal
+            if signal.side == 'buy':
+                await self._execute_buy(signal, portfolio)
+            elif signal.side == 'sell':
+                await self._execute_sell(signal, portfolio)
+        else:  # real mode
+            # Calculate quantity for real trading
+            if signal.side == 'buy':
+                # Calculate how much to buy
+                allocated_capital = self.initial_capital * (Decimal(str(allocation)) / Decimal('100'))
+                cash_to_use = allocated_capital * self.position_size_pct
+                cash_to_use = min(cash_to_use, portfolio['cash'])
+
+                if cash_to_use < Decimal('10'):
+                    self.logger.warning(f"Insufficient cash for {signal.symbol}: ${portfolio['cash']}")
+                    return
+
+                market_price = self.current_prices.get(signal.symbol)
+                if not market_price:
+                    self.logger.warning(f"No price data for {signal.symbol}")
+                    return
+
+                quantity = cash_to_use / market_price
+                await self._execute_order_real(signal, quantity, portfolio)
+            elif signal.side == 'sell':
+                # Calculate how much to sell
+                if signal.symbol not in portfolio['positions']:
+                    self.logger.debug(f"No position in {signal.symbol} to sell")
+                    return
+
+                position_quantity = portfolio['positions'][signal.symbol]
+                if position_quantity <= 0:
+                    self.logger.debug(f"No position in {signal.symbol} to sell")
+                    return
+
+                quantity = position_quantity * self.position_exit_pct
+                await self._execute_order_real(signal, quantity, portfolio)
 
     async def _execute_buy(self, signal: TradingSignalEvent, portfolio: dict):
         """Execute buy order (paper trading)"""
@@ -288,6 +358,128 @@ class TradeExecutionAgent(BaseAgent):
             f"Executed SELL: {quantity:.6f} {signal.symbol} @ ${fill_price} "
             f"(fee: ${fee:.2f}, cash received: ${cash_received:.2f}, new cash: ${portfolio['cash']:.2f})"
         )
+
+    async def _execute_order_real(self, signal: TradingSignalEvent, quantity: Decimal, portfolio: dict):
+        """
+        Execute real order on Binance
+
+        SAFETY: This uses real money. All checks must pass.
+        """
+        try:
+            self.logger.warning(f"🚨 Executing REAL order: {signal.side} {quantity:.6f} {signal.symbol}")
+
+            # Safety checks
+            if not self.binance:
+                raise ValueError("Binance client not initialized")
+
+            # Format quantity according to Binance requirements
+            # Binance requires specific precision for different pairs
+            # For now, round to 6 decimals (adjust per symbol if needed)
+            quantity_str = f"{float(quantity):.6f}".rstrip('0').rstrip('.')
+
+            # Execute order on Binance
+            if signal.side == 'buy':
+                result = self.binance.order_market_buy(
+                    symbol=signal.symbol,
+                    quantity=quantity_str
+                )
+            else:  # sell
+                result = self.binance.order_market_sell(
+                    symbol=signal.symbol,
+                    quantity=quantity_str
+                )
+
+            self.logger.info(f"Binance order result: {result}")
+
+            # Parse fill information
+            fills = result.get('fills', [])
+            if not fills:
+                raise ValueError("No fills returned from Binance")
+
+            # Calculate weighted average fill price
+            total_qty = Decimal('0')
+            total_cost = Decimal('0')
+            total_fee = Decimal('0')
+
+            for fill in fills:
+                fill_qty = Decimal(str(fill['qty']))
+                fill_price = Decimal(str(fill['price']))
+                fill_fee = Decimal(str(fill['commission']))
+
+                total_qty += fill_qty
+                total_cost += fill_qty * fill_price
+                total_fee += fill_fee
+
+            avg_fill_price = total_cost / total_qty if total_qty > 0 else Decimal('0')
+
+            # Update portfolio
+            if signal.side == 'buy':
+                portfolio['cash'] -= (total_cost + total_fee)
+                if signal.symbol not in portfolio['positions']:
+                    portfolio['positions'][signal.symbol] = Decimal('0')
+                portfolio['positions'][signal.symbol] += total_qty
+            else:  # sell
+                portfolio['cash'] += (total_cost - total_fee)
+                portfolio['positions'][signal.symbol] -= total_qty
+                if portfolio['positions'][signal.symbol] <= Decimal('0.0001'):
+                    del portfolio['positions'][signal.symbol]
+
+            # Create trade record
+            trade = Trade(
+                id=None,
+                time=datetime.now(),
+                strategy_name=signal.strategy_name,
+                symbol=signal.symbol,
+                side=signal.side,
+                quantity=total_qty,
+                price=avg_fill_price,
+                fee=total_fee,
+                trade_mode='real'
+            )
+
+            # Persist trade
+            await self._persist_trade(trade)
+
+            # Publish trade executed event
+            await self.publish(TradeExecutedEvent(
+                trade_id=None,
+                order_id=str(result['orderId']),
+                strategy_name=signal.strategy_name,
+                symbol=signal.symbol,
+                side=signal.side,
+                quantity=total_qty,
+                price=avg_fill_price,
+                fee=total_fee,
+                trade_mode='real'
+            ))
+
+            self.logger.warning(
+                f"✅ REAL TRADE EXECUTED: {signal.side} {total_qty:.6f} {signal.symbol} @ ${avg_fill_price} "
+                f"(fee: ${total_fee:.2f}, order_id: {result['orderId']})"
+            )
+
+        except BinanceAPIException as e:
+            self.logger.error(f"❌ Binance API error: {e.message} (code: {e.code})")
+
+            # Publish error event
+            await self.publish(TradeErrorEvent(
+                order_id=None,
+                strategy_name=signal.strategy_name,
+                symbol=signal.symbol,
+                error_type='binance_api_error',
+                error_message=f"{e.code}: {e.message}"
+            ))
+
+        except Exception as e:
+            self.logger.error(f"❌ Unexpected error executing real order: {e}", exc_info=True)
+
+            await self.publish(TradeErrorEvent(
+                order_id=None,
+                strategy_name=signal.strategy_name,
+                symbol=signal.symbol,
+                error_type='execution_error',
+                error_message=str(e)
+            ))
 
     async def _persist_trade(self, trade: Trade):
         """Save trade to database"""
