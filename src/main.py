@@ -17,6 +17,8 @@ from src.agents.market_data import MarketDataAgent
 from src.agents.strategy import StrategyAgent
 from src.agents.strategies.momentum import MomentumStrategy
 from src.agents.strategies.macd import MACDStrategy
+from src.agents.strategies.bollinger import BollingerBandsStrategy
+from src.agents.strategies.meanreversion import MeanReversionStrategy
 from src.agents.execution import TradeExecutionAgent as ExecutionAgent
 from src.agents.meta_strategy import MetaStrategyAgent
 from src.agents.fork_manager import ForkManagerAgent
@@ -106,6 +108,33 @@ class IcarusSystem:
             self.agents.append(macd_strategy)
             strategies.append(macd_strategy)
             logger.info("  - MACDStrategy created")
+
+        # Bollinger Bands Strategy
+        if config['strategies']['bollinger']['enabled']:
+            bollinger_strategy = BollingerBandsStrategy(
+                self.event_bus,
+                symbol=config['strategies']['bollinger']['symbol'],
+                period=config['strategies']['bollinger']['period'],
+                num_std=config['strategies']['bollinger']['num_std'],
+                warmup_period=config['strategies']['bollinger']['warmup_period']
+            )
+            self.agents.append(bollinger_strategy)
+            strategies.append(bollinger_strategy)
+            logger.info("  - BollingerBandsStrategy created")
+
+        # Mean Reversion Strategy
+        if config['strategies']['meanreversion']['enabled']:
+            meanreversion_strategy = MeanReversionStrategy(
+                self.event_bus,
+                symbol=config['strategies']['meanreversion']['symbol'],
+                rsi_period=config['strategies']['meanreversion']['rsi_period'],
+                oversold_threshold=config['strategies']['meanreversion']['oversold_threshold'],
+                overbought_threshold=config['strategies']['meanreversion']['overbought_threshold'],
+                warmup_period=config['strategies']['meanreversion']['warmup_period']
+            )
+            self.agents.append(meanreversion_strategy)
+            strategies.append(meanreversion_strategy)
+            logger.info("  - MeanReversionStrategy created")
 
         # 3. Execution Agent
         initial_capital = Decimal(str(config['trading']['initial_capital']))

@@ -50,6 +50,21 @@ strategies:
     signal_period: 9
     warmup_period: 50
 
+  bollinger:
+    enabled: true
+    symbol: ETHUSDT
+    period: 20
+    num_std: 2
+    warmup_period: 20
+
+  meanreversion:
+    enabled: true
+    symbol: BTCUSDT
+    rsi_period: 14
+    oversold_threshold: 30
+    overbought_threshold: 70
+    warmup_period: 14
+
 # Meta-Strategy Configuration
 meta_strategy:
   evaluation_interval_minutes: 5  # Changed from hours to minutes for frequent fork demos
