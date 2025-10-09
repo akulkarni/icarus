@@ -62,6 +62,11 @@ class DatabaseManager:
         self._fork_pools: dict[str, asyncpg.Pool] = {}
         self._lock = asyncio.Lock()
 
+    @property
+    def is_initialized(self) -> bool:
+        """Check if database pool is initialized"""
+        return self._pool is not None
+
     async def initialize(self) -> None:
         """
         Initialize connection pool

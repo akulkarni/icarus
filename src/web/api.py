@@ -86,78 +86,130 @@ from src.core.database import get_db_manager_sync
 @app.get("/api/portfolio")
 async def get_portfolio():
     """Get current portfolio summary"""
-    db = get_db_manager_sync()
-    conn = await db.get_connection()
-
     try:
-        # Get all open positions
-        positions = await conn.fetch("""
-            SELECT strategy_name, symbol, quantity, avg_entry_price,
-                   current_value, unrealized_pnl, last_updated
-            FROM positions
-            WHERE quantity > 0
-            ORDER BY strategy_name, symbol
-        """)
+        db = get_db_manager_sync()
 
-        # Get strategy performance (latest for each strategy)
-        performance = await conn.fetch("""
-            SELECT DISTINCT ON (strategy_name)
-                   strategy_name, portfolio_value, cash_balance,
-                   total_pnl, allocation_pct, is_active
-            FROM strategy_performance
-            ORDER BY strategy_name, time DESC
-        """)
+        # Check if database is initialized
+        if not db.is_initialized:
+            return {
+                "positions": [],
+                "strategies": [],
+                "timestamp": datetime.now().isoformat(),
+                "error": "Database not initialized"
+            }
 
+        conn = await db.get_connection()
+
+        try:
+            # Get all open positions
+            positions = await conn.fetch("""
+                SELECT strategy_name, symbol, quantity, avg_entry_price,
+                       current_value, unrealized_pnl, last_updated
+                FROM positions
+                WHERE quantity > 0
+                ORDER BY strategy_name, symbol
+            """)
+
+            # Get strategy performance (latest for each strategy)
+            performance = await conn.fetch("""
+                SELECT DISTINCT ON (strategy_name)
+                       strategy_name, portfolio_value, cash_balance,
+                       total_pnl, allocation_pct, is_active
+                FROM strategy_performance
+                ORDER BY strategy_name, time DESC
+            """)
+
+            return {
+                "positions": [dict(p) for p in positions],
+                "strategies": [dict(s) for s in performance],
+                "timestamp": datetime.now().isoformat()
+            }
+
+        finally:
+            await db.release_connection(conn)
+
+    except Exception as e:
+        logger.error(f"Error fetching portfolio: {e}")
         return {
-            "positions": [dict(p) for p in positions],
-            "strategies": [dict(s) for s in performance],
-            "timestamp": datetime.now().isoformat()
+            "positions": [],
+            "strategies": [],
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
         }
-
-    finally:
-        await db.release_connection(conn)
 
 
 @app.get("/api/trades/recent")
 async def get_recent_trades(limit: int = 50):
     """Get recent trades"""
-    db = get_db_manager_sync()
-    conn = await db.get_connection()
-
     try:
-        trades = await conn.fetch("""
-            SELECT time, strategy_name, symbol, side, quantity,
-                   price, value, fee, trade_mode
-            FROM trades
-            ORDER BY time DESC
-            LIMIT $1
-        """, limit)
+        db = get_db_manager_sync()
 
-        return {"trades": [dict(t) for t in trades]}
+        # Check if database is initialized
+        if not db.is_initialized:
+            return {
+                "trades": [],
+                "error": "Database not initialized"
+            }
 
-    finally:
-        await db.release_connection(conn)
+        conn = await db.get_connection()
+
+        try:
+            trades = await conn.fetch("""
+                SELECT time, strategy_name, symbol, side, quantity,
+                       price, value, fee, trade_mode
+                FROM trades
+                ORDER BY time DESC
+                LIMIT $1
+            """, limit)
+
+            return {"trades": [dict(t) for t in trades]}
+
+        finally:
+            await db.release_connection(conn)
+
+    except Exception as e:
+        logger.error(f"Error fetching trades: {e}")
+        return {
+            "trades": [],
+            "error": str(e)
+        }
 
 
 @app.get("/api/forks/active")
 async def get_active_forks():
     """Get active database forks"""
-    db = get_db_manager_sync()
-    conn = await db.get_connection()
-
     try:
-        forks = await conn.fetch("""
-            SELECT fork_id, requesting_agent, purpose, created_at,
-                   ttl_seconds, status
-            FROM fork_tracking
-            WHERE status = 'active'
-            ORDER BY created_at DESC
-        """)
+        db = get_db_manager_sync()
 
-        return {"forks": [dict(f) for f in forks]}
+        # Check if database is initialized
+        if not db.is_initialized:
+            return {
+                "forks": [],
+                "error": "Database not initialized"
+            }
 
-    finally:
-        await db.release_connection(conn)
+        conn = await db.get_connection()
+
+        try:
+            forks = await conn.fetch("""
+                SELECT fork_id, requesting_agent, purpose, created_at,
+                       ttl_seconds, status
+                FROM fork_tracking
+                WHERE status = 'active'
+                ORDER BY created_at DESC
+            """)
+
+            return {"forks": [dict(f) for f in forks]}
+
+        finally:
+            await db.release_connection(conn)
+
+    except Exception as e:
+        logger.error(f"Error fetching forks: {e}")
+        return {
+            "forks": [],
+            "error": str(e)
+        }
 
 
 # ============================================================================
